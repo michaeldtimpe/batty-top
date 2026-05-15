@@ -1,27 +1,24 @@
 [package]
-name = "battop"
-version = "0.2.4"
-authors = ["svartalf <self@svartalf.info>"]
-edition = "2018"
-description = "Interactive batteries viewer"
-homepage = "https://github.com/svartalf/rust-battop"
-repository = "https://github.com/svartalf/rust-battop"
-readme = "README.md"
-categories = ["os"]
-keywords = ["tui", "battery", "linux", "macos"]
+name = "batty"
+version = "0.3.0"
+edition = "2024"
+description = "Interactive battery viewer for the terminal (Apple Silicon fork of battop)"
 license = "Apache-2.0 OR MIT"
-exclude = ["assets"]
 
-[badges]
-travis-ci = { repository = "svartalf/rust-battop", branch = "master" }
-maintenance = { status = "actively-developed" }
+[[bin]]
+name = "batty"
+path = "src/main.rs"
 
 [dependencies]
-battery = "^0.7"
-structopt = { version = "0.2", default-features = false }
-log = "0.4.6"
-stderrlog = "0.4.1"
-tui = "0.6.0"
-termion = "1.5.2"
-itertools = "0.8.0"
-humantime = "1.2.0"
+starship-battery = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+ratatui = "0.29"
+crossterm = "0.28"
+ctrlc = "3"
+log = "0.4"
+env_logger = "0.11"
+itertools = "0.13"
+humantime = "2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+batty-mac-extras = { path = "../batty-mac-extras" }

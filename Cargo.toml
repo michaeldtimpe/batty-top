@@ -1,11 +1,10 @@
 [workspace]
 resolver = "3"
-members = ["probe", "batty-mac-extras"]
+members = ["probe", "batty-mac-extras", "batty-top"]
 
 [workspace.package]
 edition = "2024"
 rust-version = "1.85"
 
-# starship-battery flips to { path = "rust-battery" } once the fork lands in Phase 2.
 [workspace.dependencies]
 starship-battery = "0.11.0"

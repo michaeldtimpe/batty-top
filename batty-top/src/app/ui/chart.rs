@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use battery::units::electric_potential::volt;
-use battery::units::power::watt;
-use battery::units::thermodynamic_temperature::{degree_celsius, kelvin};
-use battery::units::Unit;
-use battery::State;
 use itertools::{Itertools, MinMaxResult};
+use starship_battery::State;
+use starship_battery::units::Unit;
+use starship_battery::units::electric_potential::volt;
+use starship_battery::units::power::watt;
+use starship_battery::units::thermodynamic_temperature::{degree_celsius, kelvin};
 
 use super::Units;
 use crate::app::Config;
@@ -57,7 +57,6 @@ impl ChartData {
         &mut self.battery_state
     }
 
-    #[allow(clippy::cast_lossless)]
     pub fn push<T>(&mut self, value: T)
     where
         T: Into<f64>,
@@ -74,7 +73,7 @@ impl ChartData {
         self.value_latest = value;
 
         self.points.push((RESOLUTION as f64 / 2.0, value));
-        match self.points.iter().minmax_by_key(|(_, y)| y) {
+        match self.points.iter().minmax_by_key(|(_, y)| *y as i64) {
             MinMaxResult::MinMax((_, min), (_, max)) => {
                 self.value_min = *min;
                 self.value_max = *max;
@@ -86,8 +85,6 @@ impl ChartData {
             _ => {}
         }
     }
-
-    // Texts and titles
 
     pub fn title(&self) -> &str {
         match self.chart_type {
@@ -101,7 +98,6 @@ impl ChartData {
         }
     }
 
-    /// Current value formatted with proper units
     pub fn current(&self) -> String {
         if self.enabled {
             match self.chart_type {
@@ -117,19 +113,13 @@ impl ChartData {
         }
     }
 
-    // Data
-
     pub fn points(&self) -> &[(f64, f64)] {
         self.points.as_ref()
     }
 
-    // X scale
-
     pub fn x_bounds(&self) -> [f64; 2] {
         [0.0, 256.0]
     }
-
-    // Y scale
 
     pub fn y_title(&self) -> &str {
         match self.chart_type {

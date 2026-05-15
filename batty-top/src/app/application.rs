@@ -1,50 +1,60 @@
-use std::fmt;
 use std::sync::Arc;
 
-use tui::backend::Backend;
+use log::{error, trace};
+use starship_battery as battery;
 
 use super::config::Config;
 use super::events::{Event, EventHandler};
 use super::ui;
 use crate::{Error, Result};
 
-pub fn init(config: Arc<Config>) -> Result<Application<impl Backend>> {
+#[cfg(target_os = "macos")]
+use super::Extras;
+
+pub fn init(config: Arc<Config>) -> Result<Application> {
     let manager = battery::Manager::new()?;
 
-    // This vec will be used for UI data pre-population before the first tick
     let batteries = manager
         .batteries()?
         .flatten()
         .map(|battery| ui::View::new(config.clone(), battery))
         .collect::<Vec<_>>();
 
-    // Probing if any batteries are installed at all
     if batteries.is_empty() {
         error!("Unable to find any batteries in system, exiting");
         return Err(Error::NoBatteries);
-    } else {
-        trace!("Found {} batteries during initialization", batteries.len());
     }
+    trace!("Found {} batteries during initialization", batteries.len());
+
+    #[cfg(target_os = "macos")]
+    let extras: Option<Extras> = match batty_mac_extras::read() {
+        Ok(e) => Some(e),
+        Err(e) => {
+            log::warn!("Failed to read macOS battery extras: {}", e);
+            None
+        }
+    };
 
     let events = EventHandler::from_config(&config);
-    let interface = ui::init(config.clone(), batteries)?;
+    let interface = ui::init(
+        config.clone(),
+        batteries,
+        #[cfg(target_os = "macos")]
+        extras,
+    )?;
 
-    Ok(Application {
-        manager,
-        config,
-        events,
-        interface,
-    })
+    Ok(Application { manager, config, events, interface })
 }
 
-pub struct Application<B: Backend> {
+pub struct Application {
     manager: battery::Manager,
+    #[allow(dead_code)]
     config: Arc<Config>,
     events: EventHandler,
-    interface: ui::Interface<B>,
+    interface: ui::Interface,
 }
 
-impl<B: Backend> Application<B> {
+impl Application {
     pub fn run(&mut self) -> Result<()> {
         loop {
             self.interface.draw()?;
@@ -73,11 +83,8 @@ impl<B: Backend> Application<B> {
     }
 }
 
-impl<B: Backend> fmt::Debug for Application<B> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Application")
-            .field("config", &self.config)
-            .field("manager", &self.manager)
-            .finish()
+impl std::fmt::Debug for Application {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Application").field("config", &self.config).finish()
     }
 }

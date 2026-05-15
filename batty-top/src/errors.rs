@@ -2,7 +2,6 @@ use std::error;
 use std::fmt;
 use std::io;
 use std::result;
-use std::sync::mpsc;
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -10,11 +9,9 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     UserExit,
     NoBatteries,
-    Battery(battery::Error),
+    Battery(starship_battery::Error),
     Io(io::Error),
-    Channel(mpsc::RecvError),
     Logger(log::SetLoggerError),
-    ParseError,
 }
 
 impl error::Error for Error {
@@ -22,7 +19,6 @@ impl error::Error for Error {
         match self {
             Error::Battery(e) => Some(e),
             Error::Io(e) => Some(e),
-            Error::Channel(e) => Some(e),
             Error::Logger(e) => Some(e),
             _ => None,
         }
@@ -34,17 +30,15 @@ impl fmt::Display for Error {
         match self {
             Error::UserExit => f.write_str("User-requested exit"),
             Error::NoBatteries => f.write_str("Unable to find any batteries installed"),
-            Error::ParseError => f.write_str("Unable to parse value"),
             Error::Battery(e) => fmt::Display::fmt(e, f),
             Error::Io(e) => fmt::Display::fmt(e, f),
-            Error::Channel(e) => fmt::Display::fmt(e, f),
             Error::Logger(e) => fmt::Display::fmt(e, f),
         }
     }
 }
 
-impl From<battery::Error> for Error {
-    fn from(e: battery::Error) -> Self {
+impl From<starship_battery::Error> for Error {
+    fn from(e: starship_battery::Error) -> Self {
         Error::Battery(e)
     }
 }
@@ -52,12 +46,6 @@ impl From<battery::Error> for Error {
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Error::Io(e)
-    }
-}
-
-impl From<mpsc::RecvError> for Error {
-    fn from(e: mpsc::RecvError) -> Self {
-        Error::Channel(e)
     }
 }
 

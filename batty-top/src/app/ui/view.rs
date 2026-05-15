@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
-use battery::units;
+use log::{trace, warn};
+use starship_battery as battery;
+use starship_battery::units;
 
 use super::{ChartData, ChartType, Units};
-use crate::app::Config;
 use crate::Result;
+use crate::app::Config;
 
-/// View is a content of one separate tab - information about one specific battery
+/// View is the content of one tab — info about one specific battery.
 #[derive(Debug)]
 pub struct View {
     config: Arc<Config>,
@@ -27,7 +29,6 @@ impl View {
         }
     }
 
-    /// Update internal state, but do not re-draw it
     pub fn update(&mut self, manager: &mut battery::Manager) -> Result<()> {
         manager.refresh(&mut self.battery)?;
 
@@ -54,24 +55,20 @@ impl View {
         Ok(())
     }
 
-    /// Return view title used in a tab header
     pub fn title(&self) -> String {
         if let Some(model) = self.battery.model() {
-            trace!("View is going to use battery model as a tab title: {}", model);
+            trace!("Using battery model as tab title: {}", model);
             return model.to_string();
         }
-
         if let Some(vendor) = self.battery.vendor() {
-            trace!("View is going to use battery vendor as a tab title: {}", vendor);
+            trace!("Using battery vendor as tab title: {}", vendor);
             return vendor.to_string();
         }
-
         if let Some(sn) = self.battery.serial_number() {
-            trace!("View is going to use battery S/N as a tab title: {}", sn);
+            trace!("Using battery S/N as tab title: {}", sn);
             return sn.to_string();
         }
-
-        warn!("View is unable to determine proper tab title, falling back to unknown");
+        warn!("Unable to determine tab title, falling back to 'Unknown battery'");
         "Unknown battery".to_string()
     }
 
