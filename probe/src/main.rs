@@ -41,5 +41,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    {
+        println!();
+        println!("=== macOS extras (batty-mac-extras) ===");
+        match batty_mac_extras::read() {
+            Ok(extras) => {
+                println!("  pack lot code:    {:?}", extras.pack_lot_code);
+                println!("  pcb lot code:     {:?}", extras.pcb_lot_code);
+                println!("  firmware version: {:?}", extras.firmware_version);
+                println!("  hardware rev:     {:?}", extras.hardware_revision);
+                println!("  cell revision:    {:?}", extras.cell_revision);
+                println!("  first use:        {:?}", extras.first_use);
+                println!("  technology:       {}", extras.technology);
+                println!("  design capacity:  {:?} mAh", extras.design_capacity_mah);
+                println!("  full charge cap:  {:?} mAh", extras.nominal_charge_capacity_mah);
+                println!("  operating time:   {:?} hours", extras.total_operating_time_hours);
+                println!("  max capacity:     {:?} %", extras.max_capacity_percent);
+            }
+            Err(e) => println!("  (error: {})", e),
+        }
+    }
+
     Ok(())
 }

@@ -1,0 +1,7 @@
+[package]
+name = "batty-mac-extras"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+plist = "1.8"
