@@ -20,7 +20,7 @@ An interactive terminal battery viewer for macOS, tuned for Apple Silicon.
 Requires Rust 1.85 or newer (edition 2024).
 
 ```sh
-git clone https://github.com/<your-user>/batty-top.git
+git clone https://github.com/michaeldtimpe/batty-top.git
 cd batty-top
 cargo install --path batty-top
 ```

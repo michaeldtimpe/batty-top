@@ -24,7 +24,7 @@ Homebrew's `rust` formula also works but lags rustup; if you're picking, use rus
 ## Build and run
 
 ```sh
-git clone https://github.com/<your-user>/batty-top.git
+git clone https://github.com/michaeldtimpe/batty-top.git
 cd batty-top
 cargo run --release -p batty
 ```
