@@ -64,6 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("  peak charge:      {:?} mA", extras.lifetime_max_charge_current_ma);
                 println!("  peak voltage:     {:?} mV", extras.lifetime_max_pack_voltage_mv);
                 println!("  disconnects:      {:?}", extras.system_disconnect_count);
+                println!("  cycle design:     {:?}", extras.cycle_count_design);
             }
             Err(e) => println!("  (error: {})", e),
         }

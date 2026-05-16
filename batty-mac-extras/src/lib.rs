@@ -83,6 +83,11 @@ pub struct BatteryExtras {
     /// Number of times the system has been disconnected from the battery
     /// (e.g. battery removed/reinstalled). May reset across firmware updates.
     pub system_disconnect_count: Option<i64>,
+    /// Cycle count "service limit" reported by `pmset -g rawbatt` (the `M` in
+    /// `Cycles=N/M`). On Apple Silicon this is typically 300 — a pmset-internal
+    /// constant, not an IOKit-readable design limit. Useful as display context
+    /// next to the cycle count.
+    pub cycle_count_design: Option<i64>,
 }
 
 #[derive(Debug)]
@@ -199,5 +204,23 @@ pub fn read() -> Result<BatteryExtras, Error> {
         system_disconnect_count: lifetime_data
             .and_then(|d| d.get("SystemDisconnectCount"))
             .and_then(Value::as_signed_integer),
+        cycle_count_design: read_pmset_cycle_design(),
     })
+}
+
+/// Parse the `Cycles=N/M` field from `pmset -g rawbatt` output and return `M`.
+/// Returns `None` if pmset fails, is missing, or doesn't include the field.
+fn read_pmset_cycle_design() -> Option<i64> {
+    let out = Command::new("/usr/bin/pmset").args(["-g", "rawbatt"]).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let text = std::str::from_utf8(&out.stdout).ok()?;
+    // Expected fragment: "Cycles=N/M;"
+    let idx = text.find("Cycles=")?;
+    let rest = &text[idx + "Cycles=".len()..];
+    let slash = rest.find('/')?;
+    let after = &rest[slash + 1..];
+    let end = after.find(|c: char| !c.is_ascii_digit()).unwrap_or(after.len());
+    after[..end].parse().ok()
 }

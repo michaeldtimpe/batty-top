@@ -179,9 +179,16 @@ impl<'i> Painter<'i> {
             }
         };
         let state = format!("{}", battery.state());
-        let cycles = match battery.cycle_count() {
-            Some(cycles) => format!("{}", cycles),
-            None => "N/A".to_string(),
+        let cycles = {
+            #[cfg(target_os = "macos")]
+            let design = self.0.extras.and_then(|e| e.cycle_count_design);
+            #[cfg(not(target_os = "macos"))]
+            let design: Option<i64> = None;
+            match (battery.cycle_count(), design) {
+                (Some(n), Some(m)) => format!("{} / {}", n, m),
+                (Some(n), None) => format!("{}", n),
+                (None, _) => "N/A".to_string(),
+            }
         };
 
         #[cfg(target_os = "macos")]
