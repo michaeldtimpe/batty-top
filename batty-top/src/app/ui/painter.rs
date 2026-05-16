@@ -56,7 +56,7 @@ impl<'i> Painter<'i> {
                 Constraint::Length(12), // Information (expanded for extras)
                 Constraint::Length(9),  // Energy
                 Constraint::Length(5),  // Timings
-                Constraint::Min(4),     // Environment
+                Constraint::Min(10),    // Environment + lifetime stats
             ])
             .split(main_columns[0]);
 
@@ -184,25 +184,20 @@ impl<'i> Painter<'i> {
             None => "N/A".to_string(),
         };
 
-        let vendor_owned;
-        let vendor: &str = {
-            #[cfg(target_os = "macos")]
-            {
-                match (battery.vendor(), self.0.extras.and_then(|e| e.pack_lot_code.as_deref())) {
-                    (Some(v), _) => v,
-                    (None, Some(lot)) => {
-                        vendor_owned = format!("lot {}", lot);
-                        vendor_owned.as_str()
-                    }
-                    (None, None) => "N/A",
-                }
-            }
-            #[cfg(not(target_os = "macos"))]
-            {
-                let _ = &vendor_owned;
-                battery.vendor().unwrap_or("N/A")
-            }
+        #[cfg(target_os = "macos")]
+        let vendor_display: String = match (
+            battery.vendor(),
+            self.0.extras.and_then(|e| e.vendor),
+            self.0.extras.and_then(|e| e.pack_lot_code.as_deref()),
+        ) {
+            (Some(v), _, _) => v.to_string(),       // starship-battery (Intel path)
+            (_, Some(v), _) => v.to_string(),       // defensive supplier-code lookup
+            (_, _, Some(lot)) => format!("lot {}", lot), // honest pack-lot fallback
+            _ => "N/A".to_string(),
         };
+        #[cfg(not(target_os = "macos"))]
+        let vendor_display: String = battery.vendor().unwrap_or("N/A").to_string();
+        let vendor: &str = vendor_display.as_str();
 
         #[cfg(target_os = "macos")]
         let firmware = self
@@ -327,7 +322,7 @@ impl<'i> Painter<'i> {
         let mut items: Vec<[&str; 2]> = vec![["Temperature", temperature.as_str()]];
 
         #[cfg(target_os = "macos")]
-        let (operating, first_use_str);
+        let (operating, first_use_str, health, max_temp, peak_charge, peak_voltage, disconnects);
         #[cfg(target_os = "macos")]
         {
             if let Some(extras) = self.0.extras {
@@ -339,8 +334,33 @@ impl<'i> Painter<'i> {
                     Some(t) => format_system_time(t),
                     None => "N/A".to_string(),
                 };
+                health = extras
+                    .battery_health_metric
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "N/A".to_string());
+                max_temp = extras
+                    .lifetime_max_temperature_c
+                    .map(|v| format!("{:.1} °C", v))
+                    .unwrap_or_else(|| "N/A".to_string());
+                peak_charge = extras
+                    .lifetime_max_charge_current_ma
+                    .map(|v| format!("{} mA", v))
+                    .unwrap_or_else(|| "N/A".to_string());
+                peak_voltage = extras
+                    .lifetime_max_pack_voltage_mv
+                    .map(|v| format!("{} mV", v))
+                    .unwrap_or_else(|| "N/A".to_string());
+                disconnects = extras
+                    .system_disconnect_count
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "N/A".to_string());
                 items.push(["Operating", operating.as_str()]);
                 items.push(["First use", first_use_str.as_str()]);
+                items.push(["Health score", health.as_str()]);
+                items.push(["Max temp ever", max_temp.as_str()]);
+                items.push(["Peak charge", peak_charge.as_str()]);
+                items.push(["Peak voltage", peak_voltage.as_str()]);
+                items.push(["Disconnects", disconnects.as_str()]);
             }
         }
 
@@ -363,7 +383,7 @@ impl<'i> Painter<'i> {
             .map(|item| Row::new(vec![Cell::from(item[0]), Cell::from(item[1])]))
             .collect();
 
-        let widths = [Constraint::Length(17), Constraint::Length(17)];
+        let widths = [Constraint::Min(14), Constraint::Min(18)];
         let table = Table::new(rows, widths).header(header_row).block(block);
         frame.render_widget(table, area);
     }

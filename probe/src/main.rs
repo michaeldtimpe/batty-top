@@ -58,6 +58,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("  full charge cap:  {:?} mAh", extras.nominal_charge_capacity_mah);
                 println!("  operating time:   {:?} hours", extras.total_operating_time_hours);
                 println!("  max capacity:     {:?} %", extras.max_capacity_percent);
+                println!("  vendor (lookup):  {:?}", extras.vendor);
+                println!("  health metric:    {:?}", extras.battery_health_metric);
+                println!("  max temp ever:    {:?} °C", extras.lifetime_max_temperature_c);
+                println!("  peak charge:      {:?} mA", extras.lifetime_max_charge_current_ma);
+                println!("  peak voltage:     {:?} mV", extras.lifetime_max_pack_voltage_mv);
+                println!("  disconnects:      {:?}", extras.system_disconnect_count);
             }
             Err(e) => println!("  (error: {})", e),
         }

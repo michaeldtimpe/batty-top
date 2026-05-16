@@ -14,6 +14,32 @@ use plist::Value;
 /// Apple's CFAbsoluteTime epoch: 2001-01-01 00:00:00 UTC, expressed as Unix seconds.
 const CF_EPOCH_UNIX_SECONDS: u64 = 978_307_200;
 
+/// Community-attested supplier codes. Sources: MacRumors thread 2237683,
+/// Apple Community thread 255404782, ELService Centre macbook-battery-manufacturer.
+/// Typically does NOT match on Apple Silicon — supplier codes are not exposed in
+/// any public IOKit field on M-series. Kept for defensive coverage (legacy Intel
+/// paths, future Apple API changes). Non-exhaustive.
+const SUPPLIER_CODES: &[(&str, &str)] = &[
+    ("SMP", "Simplo Technology"),
+    ("SWD", "Sunwoda Electronic"),
+    ("DSY", "Desay Battery"),
+    ("ATL", "Amperex Technology"),
+    ("NVT", "Navitas/CosMX"),
+    ("LGC", "LG Chem"),
+    ("DP", "Dynapack International"), // 2-char — anchored to start (see decode_vendor)
+];
+
+fn decode_vendor(mfg_data_ascii: &str) -> Option<&'static str> {
+    SUPPLIER_CODES.iter().find_map(|(code, name)| {
+        let hit = if code.len() <= 2 {
+            mfg_data_ascii.starts_with(code)
+        } else {
+            mfg_data_ascii.contains(code)
+        };
+        if hit { Some(*name) } else { None }
+    })
+}
+
 #[derive(Debug, Clone)]
 pub struct BatteryExtras {
     /// Pack lot code, e.g. "F8". Decoded from bytes 0-1 of `ManufacturerData`.
@@ -41,6 +67,22 @@ pub struct BatteryExtras {
     pub total_operating_time_hours: Option<i64>,
     /// Maximum capacity percentage (state of health, 1-100).
     pub max_capacity_percent: Option<i64>,
+    /// Best-effort supplier name decoded from `ManufacturerData`. Typically `None`
+    /// on Apple Silicon — see `SUPPLIER_CODES` for the lookup table.
+    pub vendor: Option<&'static str>,
+    /// Battery health score from `BatteryData.BatteryHealthMetric`. Exposed raw —
+    /// Apple does not document the scale or whether higher/lower is better.
+    pub battery_health_metric: Option<i64>,
+    /// Lifetime peak temperature ever recorded, in °C.
+    /// From `BatteryData.LifetimeData.MaximumTemperature` (0.1 °C units on recent Macs).
+    pub lifetime_max_temperature_c: Option<f64>,
+    /// Lifetime peak charge current ever recorded, in mA.
+    pub lifetime_max_charge_current_ma: Option<i64>,
+    /// Lifetime peak pack voltage ever recorded, in mV.
+    pub lifetime_max_pack_voltage_mv: Option<i64>,
+    /// Number of times the system has been disconnected from the battery
+    /// (e.g. battery removed/reinstalled). May reset across firmware updates.
+    pub system_disconnect_count: Option<i64>,
 }
 
 #[derive(Debug)]
@@ -99,6 +141,15 @@ pub fn read() -> Result<BatteryExtras, Error> {
         })
     };
 
+    // Full ASCII view of MfgData (truncated at first null) for supplier-code matching.
+    let mfg_ascii: Option<String> = mfg_bytes.map(|b| {
+        b.iter()
+            .take_while(|&&c| c != 0)
+            .map(|&c| c as char)
+            .collect()
+    });
+    let vendor = mfg_ascii.as_deref().and_then(decode_vendor);
+
     let first_use = battery_data
         .and_then(|d| d.get("DateOfFirstUse"))
         .and_then(Value::as_signed_integer)
@@ -126,5 +177,27 @@ pub fn read() -> Result<BatteryExtras, Error> {
             .and_then(|d| d.get("TotalOperatingTime"))
             .and_then(Value::as_signed_integer),
         max_capacity_percent: entry.get("MaxCapacity").and_then(Value::as_signed_integer),
+        vendor,
+        battery_health_metric: battery_data
+            .and_then(|d| d.get("BatteryHealthMetric"))
+            .and_then(Value::as_signed_integer),
+        lifetime_max_temperature_c: lifetime_data
+            .and_then(|d| d.get("MaximumTemperature"))
+            .and_then(Value::as_signed_integer)
+            .map(|raw| {
+                let scaled = raw as f64 / 10.0;
+                // Sanity clamp: if scaled would exceed 100 °C the source was probably
+                // already in whole °C (older Macs reportedly used that convention).
+                if scaled > 100.0 { raw as f64 } else { scaled }
+            }),
+        lifetime_max_charge_current_ma: lifetime_data
+            .and_then(|d| d.get("MaximumChargeCurrent"))
+            .and_then(Value::as_signed_integer),
+        lifetime_max_pack_voltage_mv: lifetime_data
+            .and_then(|d| d.get("MaximumPackVoltage"))
+            .and_then(Value::as_signed_integer),
+        system_disconnect_count: lifetime_data
+            .and_then(|d| d.get("SystemDisconnectCount"))
+            .and_then(Value::as_signed_integer),
     })
 }
